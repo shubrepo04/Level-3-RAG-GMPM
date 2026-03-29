@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PM Knowledge Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; color: #f8fafc; }
+    h2 { font-size: 1rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 1rem; }
+
+    .layout {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 1.5rem;
+    }
+
+    header {
+      max-width: 960px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    header .badge {
+      font-size: .7rem;
+      padding: .2rem .5rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      color: #64748b;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: .75rem;
+      padding: 1.25rem;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .upload-zone {
+      border: 2px dashed #334155;
+      border-radius: .5rem;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: #6366f1; background: #1a1f3a; }
+    .upload-zone input[type=file] { display: none; }
+    .upload-zone .icon { font-size: 2rem; margin-bottom: .5rem; }
+    .upload-zone p { font-size: .8rem; color: #64748b; }
+    .upload-zone strong { color: #94a3b8; display: block; margin-bottom: .25rem; }
+
+    .btn {
+      width: 100%;
+      padding: .6rem 1rem;
+      border: none;
+      border-radius: .5rem;
+      font-size: .875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #4f46e5; }
+    .btn-ghost { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+    .btn-ghost:hover:not(:disabled) { background: #273244; }
+
+    #doc-list { list-style: none; display: flex; flex-direction: column; gap: .4rem; }
+    #doc-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .8rem;
+      padding: .4rem .6rem;
+      background: #0f1117;
+      border-radius: .375rem;
+    }
+    #doc-list .doc-name { color: #e2e8f0; word-break: break-all; }
+    #doc-list .doc-chunks { color: #64748b; white-space: nowrap; margin-left: .5rem; }
+    .empty-state { font-size: .8rem; color: #475569; text-align: center; padding: .75rem; }
+
+    /* ── Main panel ── */
+    .main { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .ask-row { display: flex; gap: .5rem; }
+    .ask-row textarea {
+      flex: 1;
+      background: #0f1117;
+      border: 1px solid #334155;
+      border-radius: .5rem;
+      color: #e2e8f0;
+      font-size: .9rem;
+      padding: .65rem .85rem;
+      resize: vertical;
+      min-height: 56px;
+      line-height: 1.5;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .ask-row textarea:focus { border-color: #6366f1; }
+    .ask-row .btn { width: auto; padding: .6rem 1.25rem; align-self: flex-end; }
+
+    /* ── Answer ── */
+    #answer-card { display: none; }
+    #answer-card.visible { display: block; }
+
+    .answer-text {
+      font-size: .9rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+    }
+    .answer-text .warning {
+      display: block;
+      margin-top: .75rem;
+      padding: .5rem .75rem;
+      background: #2d1a00;
+      border-left: 3px solid #f59e0b;
+      border-radius: .25rem;
+      font-size: .8rem;
+      color: #fbbf24;
+    }
+
+    .sources {
+      margin-top: .75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+    }
+    .source-tag {
+      font-size: .72rem;
+      padding: .2rem .55rem;
+      background: #0f1117;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      color: #64748b;
+    }
+
+    /* ── Safety log ── */
+    #safety-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+    .stat-box {
+      background: #0f1117;
+      border-radius: .5rem;
+      padding: .75rem;
+      text-align: center;
+    }
+    .stat-box .stat-num { font-size: 1.75rem; font-weight: 700; color: #f8fafc; }
+    .stat-box .stat-label { font-size: .7rem; color: #64748b; margin-top: .15rem; }
+
+    #event-list { list-style: none; display: flex; flex-direction: column; gap: .4rem; max-height: 180px; overflow-y: auto; }
+    #event-list li {
+      font-size: .75rem;
+      padding: .35rem .6rem;
+      background: #0f1117;
+      border-radius: .375rem;
+      display: flex;
+      gap: .5rem;
+    }
+    .ev-type { color: #f59e0b; font-weight: 600; min-width: 70px; }
+    .ev-injection .ev-type { color: #f87171; }
+    .ev-grounding .ev-type { color: #fb923c; }
+    .ev-detail { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: .65rem 1rem;
+      border-radius: .5rem;
+      font-size: .85rem;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(.5rem);
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #14532d; color: #86efac; border: 1px solid #166534; }
+    #toast.error   { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+      margin-right: .35rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 680px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PM Knowledge Assistant</h1>
+  <span class="badge" id="health-badge">checking...</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <h2>Upload Document</h2>
+      <label class="upload-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".pdf,.txt" />
+        <div class="icon">📄</div>
+        <strong id="file-label">Choose or drop a file</strong>
+        <p>.pdf or .txt · max 20 MB</p>
+      </label>
+      <button class="btn btn-primary" id="upload-btn" style="margin-top:.75rem" disabled>
+        Upload &amp; Ingest
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>Ingested Documents</h2>
+      <ul id="doc-list"><li class="empty-state">No documents yet</li></ul>
+      <button class="btn btn-ghost" id="refresh-docs-btn" style="margin-top:.75rem;font-size:.75rem">
+        Refresh list
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ── Main panel ── -->
+  <main class="main">
+
+    <div class="card">
+      <h2>Ask a Question</h2>
+      <div class="ask-row">
+        <textarea id="question-input" rows="2" placeholder="e.g. What prioritisation framework does the handbook recommend?"></textarea>
+        <button class="btn btn-primary" id="ask-btn">Ask</button>
+      </div>
+    </div>
+
+    <div class="card" id="answer-card">
+      <h2>Answer</h2>
+      <div id="answer-text" class="answer-text"></div>
+      <div id="sources" class="sources"></div>
+    </div>
+
+    <div class="card">
+      <h2>Safety Log — Today</h2>
+      <div id="safety-grid">
+        <div class="stat-box"><div class="stat-num" id="stat-injections">—</div><div class="stat-label">Injections blocked</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-grounding">—</div><div class="stat-label">Grounding failures</div></div>
+      </div>
+      <ul id="event-list"><li class="empty-state">No events today</li></ul>
+      <button class="btn btn-ghost" id="refresh-safety-btn" style="margin-top:.75rem;font-size:.75rem">
+        Refresh
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  const $ = id => document.getElementById(id)
+
+  function toast(msg, type = 'success') {
+    const el = $('toast')
+    el.textContent = msg
+    el.className = `show ${type}`
+    clearTimeout(el._t)
+    el._t = setTimeout(() => el.classList.remove('show'), 3500)
+  }
+
+  function setLoading(btn, loading, label) {
+    btn.disabled = loading
+    btn.innerHTML = loading ? `<span class="spinner"></span>${label}` : label
+  }
+
+  // ── Health check ─────────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const r = await fetch('/health')
+      const d = await r.json()
+      const badge = $('health-badge')
+      badge.textContent = d.status === 'ok' ? 'online' : 'degraded'
+      badge.style.color  = d.status === 'ok' ? '#4ade80' : '#f87171'
+    } catch {
+      $('health-badge').textContent = 'offline'
+      $('health-badge').style.color = '#f87171'
+    }
+  }
+
+  // ── Document list ─────────────────────────────────────────────────────────────
+  async function loadDocs() {
+    try {
+      const r = await fetch('/api/documents')
+      const { documents } = await r.json()
+      const list = $('doc-list')
+      if (!documents?.length) {
+        list.innerHTML = '<li class="empty-state">No documents ingested yet</li>'
+        return
+      }
+      list.innerHTML = documents.map(d => `
+        <li>
+          <span class="doc-name">${d.source}</span>
+          <span class="doc-chunks">${d.chunks} chunk${d.chunks !== 1 ? 's' : ''}</span>
+        </li>
+      `).join('')
+    } catch {
+      $('doc-list').innerHTML = '<li class="empty-state">Could not load documents</li>'
+    }
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────────
+  const fileInput  = $('file-input')
+  const dropZone   = $('drop-zone')
+  const uploadBtn  = $('upload-btn')
+  const fileLabel  = $('file-label')
+
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files[0]
+    fileLabel.textContent = f ? f.name : 'Choose or drop a file'
+    uploadBtn.disabled = !f
+  })
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag') })
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'))
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault()
+    dropZone.classList.remove('drag')
+    const f = e.dataTransfer.files[0]
+    if (f) {
+      const dt = new DataTransfer()
+      dt.items.add(f)
+      fileInput.files = dt.files
+      fileLabel.textContent = f.name
+      uploadBtn.disabled = false
+    }
+  })
+
+  uploadBtn.addEventListener('click', async () => {
+    const file = fileInput.files[0]
+    if (!file) return
+
+    setLoading(uploadBtn, true, 'Ingesting…')
+    const fd = new FormData()
+    fd.append('document', file)
+
+    try {
+      const r = await fetch('/api/upload', { method: 'POST', body: fd })
+      const d = await r.json()
+
+      if (!r.ok) { toast(d.error || 'Upload failed', 'error'); return }
+
+      toast(`Ingested: ${d.filename}`)
+      fileInput.value = ''
+      fileLabel.textContent = 'Choose or drop a file'
+      uploadBtn.disabled = true
+      loadDocs()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setLoading(uploadBtn, false, 'Upload &amp; Ingest')
+    }
+  })
+
+  // ── Ask ───────────────────────────────────────────────────────────────────────
+  const questionInput = $('question-input')
+  const askBtn        = $('ask-btn')
+  const answerCard    = $('answer-card')
+  const answerText    = $('answer-text')
+  const sourcesEl     = $('sources')
+
+  async function ask() {
+    const question = questionInput.value.trim()
+    if (!question) return
+
+    setLoading(askBtn, true, 'Thinking…')
+    answerCard.classList.remove('visible')
+
+    try {
+      const r = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      })
+      const d = await r.json()
+
+      if (!r.ok) { toast(d.error || 'Request failed', 'error'); return }
+
+      // Split off the grounding warning if present
+      const NOTE = 'Note: parts of this answer could not be verified against source documents.'
+      const hasWarning = d.answer.includes(NOTE)
+      const mainText   = d.answer.replace(NOTE, '').trimEnd()
+
+      answerText.innerHTML = escHtml(mainText)
+        + (hasWarning ? `<span class="warning">⚠ ${NOTE}</span>` : '')
+
+      sourcesEl.innerHTML = (d.sources ?? [])
+        .map(s => `<span class="source-tag">📄 ${escHtml(s)}</span>`)
+        .join('')
+
+      answerCard.classList.add('visible')
+      loadSafetyLog()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setLoading(askBtn, false, 'Ask')
+    }
+  }
+
+  askBtn.addEventListener('click', ask)
+  questionInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ask()
+  })
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  // ── Safety log ────────────────────────────────────────────────────────────────
+  async function loadSafetyLog() {
+    try {
+      const r = await fetch('/api/safety-log')
+      const d = await r.json()
+
+      $('stat-injections').textContent = d.totals.injections_blocked
+      $('stat-grounding').textContent  = d.totals.grounding_failures
+
+      const list = $('event-list')
+      if (!d.events?.length) {
+        list.innerHTML = '<li class="empty-state">No events today</li>'
+        return
+      }
+      list.innerHTML = d.events.slice().reverse().map(e => `
+        <li class="ev-${e.type}">
+          <span class="ev-type">${e.type}</span>
+          <span class="ev-detail">${escHtml(e.detail)}</span>
+        </li>
+      `).join('')
+    } catch {
+      // non-critical — leave the panel as-is
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  $('refresh-docs-btn').addEventListener('click', loadDocs)
+  $('refresh-safety-btn').addEventListener('click', loadSafetyLog)
+
+  checkHealth()
+  loadDocs()
+  loadSafetyLog()
+</script>
+</body>
+</html>

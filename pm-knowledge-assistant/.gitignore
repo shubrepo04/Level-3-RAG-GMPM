@@ -1,0 +1,8 @@
+node_modules/
+.env
+documents/*.pdf
+documents/*.txt
+documents/*.docx
+dist/
+
+.vercel
